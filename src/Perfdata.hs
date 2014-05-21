@@ -37,6 +37,10 @@ line = many item
 
 type ItemMap = M.Map S.ByteString S.ByteString
 
+data MetricValue = Int64 | Float64
+
+type MetricMap = M.Map S.ByteString MetricValue
+
 mapItems :: [Item] -> ItemMap
 mapItems = foldl (\m i -> M.insert (name i) (value i) m) M.empty
 
@@ -48,13 +52,13 @@ data ServicePerfdata = ServicePerfData {
 
 data HostOrService = Service ServicePerfdata | Host
 
-data Perfdatum = Perfdatum {
+data Perfdata = Perfdata {
     dataType :: HostOrService,
     timestamp :: Word64,
     hostname :: S.ByteString,
     hostState :: S.ByteString,
     hostStateType :: S.ByteString,
-    perfString    :: S.ByteString
+    perfMetrics   :: MetricMap
 }
 
 type ParserError = [Char]
