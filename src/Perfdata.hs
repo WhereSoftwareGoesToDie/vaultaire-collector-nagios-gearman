@@ -9,7 +9,7 @@ import Control.Applicative
 import Control.Monad.State
 import Data.Attoparsec.ByteString.Char8
 import qualified Data.ByteString as S
-import Data.ByteString.Char8 (readInteger)
+import Data.ByteString.Char8 (readInteger, pack)
 import Data.Word
 import Data.List hiding (takeWhile)
 import qualified Data.Map as M
@@ -42,7 +42,22 @@ type ItemMap = M.Map S.ByteString S.ByteString
 
 data MetricValue = Int64 | Float64
 
-type MetricMap = M.Map S.ByteString MetricValue
+type MetricList = [(S.ByteString, MetricValue)]
+
+data UOM = Second | Millisecond | Microsecond | Percent | Byte | Kilobyte | Megabyte | Terabyte | Counter | NullUnit | Unknown
+
+fromString :: [Char] -> UOM
+fromString "s" = Second 
+fromString "ms" = Millisecond
+fromString "us" = Microsecond
+fromString "%" = Percent
+fromString "b" = Byte
+fromString "kb" = Kilobyte
+fromString "mb" = Megabyte
+fromString "tb" = Terabyte
+fromString "c" = Counter
+fromString "" = NullUnit
+fromString _ = Unknown
 
 mapItems :: [Item] -> ItemMap
 mapItems = foldl (\m i -> M.insert (name i) (value i) m) M.empty
@@ -59,7 +74,7 @@ data Perfdata = Perfdata {
     timestamp :: Word64,
     hostname :: S.ByteString,
     hostState :: S.ByteString,
-    perfMetrics   :: MetricMap
+    perfMetrics   :: MetricList
 }
 
 type ParserError = [Char]
@@ -129,6 +144,39 @@ parseHostState m = case (M.lookup "HOSTSTATE" m) of
         put $ Just "HOSTSTATE not found"
         return Nothing
     Just s -> return $ Just s
+
+uom :: Parser UOM
+uom = option "" (many letter_ascii) >>= (return . fromString)
+
+metric :: Parser (S.ByteString, MetricValue)
+metric = undefined
+
+parseMetricString :: S.ByteString -> Either ParserError MetricList
+parseMetricString mStr = undefined
+
+parseHostMetrics :: ItemMap -> Either ParserError MetricList
+parseHostMetrics m = case (M.lookup "HOSTPERFDATA" m) of
+    Nothing -> Left "HOSTPERFDATA not found"
+    Just p  -> parseMetricString p
+
+parseServiceMetrics :: ItemMap -> Either ParserError MetricList
+parseServiceMetrics m = case (M.lookup "SERVICEPERFDATA" m) of
+    Nothing -> Left "SERVICEPERFDATA not found"
+    Just p  -> parseMetricString p
+
+parseMetrics :: HostOrService -> ItemMap -> ErrorState (Maybe MetricList)
+parseMetrics typ m = do
+    case typ of
+        Host -> case (parseHostMetrics m) of
+            Left err -> do
+                put $ Just err
+                return Nothing
+            Right metrics -> return $ Just metrics
+        Service _ -> case (parseServiceMetrics m) of
+            Left err -> do
+                put $ Just err
+                return Nothing
+            Right metrics -> return $ Just metrics
 
 extractPerfdata :: ItemMap -> Either ParserError Perfdata
 extractPerfdata m = do
