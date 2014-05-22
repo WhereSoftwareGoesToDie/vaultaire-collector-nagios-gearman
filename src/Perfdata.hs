@@ -53,7 +53,7 @@ data Metric = Metric {
     maxValue :: Threshold
 } deriving (Show)
 
-type MetricList = [(S.ByteString, Metric)]
+type MetricList = [([Char], Metric)]
 
 data UOM = Second | Millisecond | Microsecond | Percent | Byte | Kilobyte | Megabyte | Terabyte | Counter | NullUnit | UnknownUOM
     deriving (Show)
@@ -187,6 +187,9 @@ metric = do
                           (option NoThreshold threshold) <*>
                           (option NoThreshold threshold) 
     return (name, m)
+
+metricLine :: Parser MetricList
+metricLine = many (metric <* (skipMany (char8 ';') <* skipSpace))
 
 parseMetricString :: S.ByteString -> Either ParserError MetricList
 parseMetricString mStr = undefined
