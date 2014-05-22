@@ -123,11 +123,19 @@ parseTimestamp m = case (M.lookup "TIMET" m) of
             return Nothing
         Just (n, _) -> return $ Just $ fromInteger n
 
+parseHostState :: ItemMap -> ErrorState (Maybe S.ByteString)
+parseHostState m = case (M.lookup "HOSTSTATE" m) of
+    Nothing -> do
+        put $ Just "HOSTSTATE not found"
+        return Nothing
+    Just s -> return $ Just s
+
 extractPerfdata :: ItemMap -> Either ParserError Perfdata
 extractPerfdata m = do
     let (datum,err) =  flip runState Nothing $ do 
                            dType <- parseDataType m
                            hName <- parseHostname m
                            tStamp <- parseTimestamp m
+                           hState <- parseHostState m
                            return Nothing
     Left ""
