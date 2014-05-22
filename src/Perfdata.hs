@@ -5,6 +5,7 @@ module Perfdata where
 import Prelude hiding (takeWhile)
 import Control.Monad
 import Control.Applicative
+import Control.Monad.State
 import Data.Attoparsec.ByteString.Char8
 import qualified Data.ByteString as S
 import Data.Word
@@ -44,10 +45,9 @@ type MetricMap = M.Map S.ByteString MetricValue
 mapItems :: [Item] -> ItemMap
 mapItems = foldl (\m i -> M.insert (name i) (value i) m) M.empty
 
-data ServicePerfdata = ServicePerfData {
+data ServicePerfdata = ServicePerfdata {
     serviceDescription :: S.ByteString,
-    serviceState       :: S.ByteString,
-    serviceStateType       :: S.ByteString
+    serviceState       :: S.ByteString
 }
 
 data HostOrService = Service ServicePerfdata | Host
@@ -70,3 +70,40 @@ extractItems :: Result [Item] -> Either ParserError ItemMap
 extractItems (Done _ is) = Right $ mapItems is
 extractItems (Fail _ ctxs err) = Left $ concat $ err : "\n" : (intercalate "," ctxs) : []
 extractItems (Partial f) = extractItems (f "")
+
+type MaybeError = Maybe ParserError
+
+type MaybePerfdata = Maybe Perfdata
+
+type ErrorState = State MaybeError
+
+parseServiceData :: ItemMap -> ErrorState (Maybe ServicePerfdata)
+parseServiceData m = case (M.lookup "SERVICEDESC" m) of
+    Nothing -> do
+        put $ Just "SERVICEDESC not found"
+        return Nothing
+    Just desc -> case (M.lookup "SERVICESTATE" m) of
+        Nothing -> do
+            put $ Just "SERVICESTATE not found"
+            return Nothing
+        Just state -> return $ Just $ ServicePerfdata desc state
+
+parseDataType :: ItemMap -> ErrorState (Maybe HostOrService)
+parseDataType m = case (M.lookup "DATATYPE" m) of
+    Nothing -> do
+        put $ Just "DATATYPE not found"
+        return Nothing
+    Just s -> case s of
+        "HOSTPERFDATA" -> return $ Just Host
+        "SERVICEPERFDATA" -> do
+            serviceData <- parseServiceData m
+            case serviceData of
+                Nothing -> return Nothing
+                Just d -> return $ Just $ Service d
+
+extractPerfdata :: ItemMap -> Either ParserError Perfdata
+extractPerfdata m = do
+    let (datum,err) =  flip runState Nothing $ do 
+                           dataType <- parseDataType m
+                           return Nothing
+    Left ""
