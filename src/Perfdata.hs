@@ -77,9 +77,9 @@ mapItems = foldl (\m i -> M.insert (label i) (content i) m) M.empty
 data ServicePerfdata = ServicePerfdata {
     serviceDescription :: S.ByteString,
     serviceState       :: S.ByteString
-}
+} deriving (Show)
 
-data HostOrService = Service ServicePerfdata | Host
+data HostOrService = Service ServicePerfdata | Host deriving (Show)
 
 data Perfdata = Perfdata {
     dataType :: HostOrService,
@@ -87,7 +87,7 @@ data Perfdata = Perfdata {
     hostname :: S.ByteString,
     hostState :: S.ByteString,
     perfMetrics   :: MetricList
-}
+} deriving (Show)
 
 type ParserError = [Char]
 
