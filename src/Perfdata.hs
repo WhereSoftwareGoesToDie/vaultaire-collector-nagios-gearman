@@ -94,16 +94,22 @@ uomFromString "c" = Counter
 uomFromString "" = NullUnit
 uomFromString _ = UnknownUOM
 
+-- |Insert items from a list into a map for easy access by key.
 mapItems :: [Item] -> ItemMap
 mapItems = foldl (\m i -> M.insert (label i) (content i) m) M.empty
 
+-- |The part of the check result that's specific to service checks, 
+-- and doesn't appear in host checks.
 data ServicePerfdata = ServicePerfdata {
     serviceDescription :: S.ByteString,
     serviceState       :: S.ByteString
 } deriving (Show)
 
+-- |The check type, either Service with associated ServiceData or Host.
 data HostOrService = Service ServicePerfdata | Host deriving (Show)
 
+-- |Encapsulates all the data in a check result that's relevant to 
+-- metrics (we throw away things like the state type of HARD/SOFT). 
 data Perfdata = Perfdata {
     dataType :: HostOrService,
     timestamp :: Int64,
@@ -114,12 +120,16 @@ data Perfdata = Perfdata {
 
 type ParserError = [Char]
 
+-- |Parse the output from a Nagios check.
 parseLine :: S.ByteString -> Result [Item]
 parseLine = parse line
 
 fmtParseError :: [String] -> String -> String
 fmtParseError ctxs err = concat $ err : "\n" : (intercalate "," ctxs) : []
 
+-- |We have no more data to give the parser at this point, so we 
+-- either fail or succeed here and return a ParserError or an ItemMap 
+-- respectively. 
 extractItems :: Result [Item] -> Either ParserError ItemMap
 extractItems (Done _ is) = Right $ mapItems is
 extractItems (Fail _ ctxs err) = Left $ fmtParseError ctxs err
@@ -131,6 +141,8 @@ type MaybePerfdata = Maybe Perfdata
 
 type ErrorState = State MaybeError
 
+-- |Called if the check output is from a service check. Returns the 
+-- service-specific component of the perfdata.
 parseServiceData :: ItemMap -> ErrorState (Maybe ServicePerfdata)
 parseServiceData m = case (M.lookup "SERVICEDESC" m) of
     Nothing -> do
@@ -142,6 +154,8 @@ parseServiceData m = case (M.lookup "SERVICEDESC" m) of
             return Nothing
         Just sState -> return $ Just $ ServicePerfdata desc sState
 
+-- |Whether this perfdata item is for a host check or a service check 
+-- (or Nothing on failure to determine). 
 parseDataType :: ItemMap -> ErrorState (Maybe HostOrService)
 parseDataType m = case (M.lookup "DATATYPE" m) of
     Nothing -> do
@@ -217,6 +231,8 @@ metric = do
 metricLine :: Parser MetricList
 metricLine = many (metric <* (skipMany (char8 ';') <* skipSpace))
 
+-- |Parse the component of the check output which contains the 
+-- performance metrics (HOSTPERFDATA or SERVICEPERFDATA). 
 parseMetricString :: S.ByteString -> Either ParserError MetricList
 parseMetricString = completeParse . parse metricLine
   where
@@ -235,6 +251,8 @@ parseServiceMetrics m = case (M.lookup "SERVICEPERFDATA" m) of
     Nothing -> Left "SERVICEPERFDATA not found"
     Just p  -> parseMetricString p
 
+-- |Given an item map extracted from a check result, parse and return 
+-- the performance metrics (or store an error and return Nothing). 
 parseMetrics :: HostOrService -> ItemMap -> ErrorState (Maybe MetricList)
 parseMetrics typ m = do
     case typ of
@@ -249,6 +267,8 @@ parseMetrics typ m = do
                 return Nothing
             Right metrics -> return $ Just metrics
 
+-- |Given an item map extracted from a check result, parse and return 
+-- a Perfdata object.
 extractPerfdata :: ItemMap -> Either ParserError Perfdata
 extractPerfdata m = case (extract m) of
     (_, Just err) -> Left err
@@ -277,6 +297,9 @@ extractPerfdata m = case (extract m) of
                                              Nothing -> return Nothing
                                              Just ms -> return $ Just $ Perfdata typ t name state ms
 
+-- |Extract perfdata from a Nagios check result formatted according 
+-- to [0].
+-- [0] https://nagios-plugins.org/doc/guidelines.html                                           
 perfdataFromByteString :: S.ByteString -> Either ParserError Perfdata
 perfdataFromByteString s = case (getItems s) of
     Left err -> Left err
