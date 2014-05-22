@@ -40,24 +40,25 @@ line = many item
 
 type ItemMap = M.Map S.ByteString S.ByteString
 
-data MetricValue = Int64 | Float64
+data MetricValue = DoubleValue Double | UnknownValue
 
 type MetricList = [(S.ByteString, MetricValue)]
 
-data UOM = Second | Millisecond | Microsecond | Percent | Byte | Kilobyte | Megabyte | Terabyte | Counter | NullUnit | Unknown
+data UOM = Second | Millisecond | Microsecond | Percent | Byte | Kilobyte | Megabyte | Terabyte | Counter | NullUnit | UnknownUOM
+    deriving (Show)
 
-fromString :: [Char] -> UOM
-fromString "s" = Second 
-fromString "ms" = Millisecond
-fromString "us" = Microsecond
-fromString "%" = Percent
-fromString "b" = Byte
-fromString "kb" = Kilobyte
-fromString "mb" = Megabyte
-fromString "tb" = Terabyte
-fromString "c" = Counter
-fromString "" = NullUnit
-fromString _ = Unknown
+uomFromString :: [Char] -> UOM
+uomFromString "s" = Second 
+uomFromString "ms" = Millisecond
+uomFromString "us" = Microsecond
+uomFromString "%" = Percent
+uomFromString "b" = Byte
+uomFromString "kb" = Kilobyte
+uomFromString "mb" = Megabyte
+uomFromString "tb" = Terabyte
+uomFromString "c" = Counter
+uomFromString "" = NullUnit
+uomFromString _ = UnknownUOM
 
 mapItems :: [Item] -> ItemMap
 mapItems = foldl (\m i -> M.insert (name i) (value i) m) M.empty
@@ -146,7 +147,20 @@ parseHostState m = case (M.lookup "HOSTSTATE" m) of
     Just s -> return $ Just s
 
 uom :: Parser UOM
-uom = option "" (many letter_ascii) >>= (return . fromString)
+uom = option "" (many letter_ascii) >>= (return . uomFromString)
+
+metricName :: Parser [Char]
+metricName = (option quote (char quote)) *>
+             (many (satisfy nameChar)) <*
+             (option quote (char quote))
+  where
+    quote = '\''
+    nameChar '\'' = False
+    nameChar '='  = False
+    nameChar _    = True
+
+metricValue :: Parser MetricValue
+metricValue = option UnknownValue (double >>= (return . DoubleValue))
 
 metric :: Parser (S.ByteString, MetricValue)
 metric = undefined
