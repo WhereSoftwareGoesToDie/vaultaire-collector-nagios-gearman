@@ -27,31 +27,43 @@ data Item = Item {
     content :: S.ByteString
 } deriving (Show)
 
+-- |Matches the '::' separating items in check result output.
 separator :: Parser [Word8]
 separator = count 2 (char8 ':') <?> "separator"
 
+-- |Matches the key in check result output.
 ident :: Parser S.ByteString
 ident = takeWhile uppercase
   where
     uppercase = inClass $ enumFromTo 'A' 'Z'
 
+-- |Matches the value in check result output.
 val :: Parser S.ByteString
 val = takeTill isTabOrEol
   where
     isTabOrEol c = (c == '\t' || c == '\n')
 
+-- |Matches a key::value pair in check result output.
 item :: Parser Item
 item = Item `fmap` ident <* separator <*> val
 
+-- |Matches a line of key::value pairs (i.e., the result of one check). 
 line :: Parser [Item]
 line = many item
 
+-- |Map from key to value for items in a check result.
 type ItemMap = M.Map S.ByteString S.ByteString
 
+-- |Value of a performance metric. We may lose some data converting 
+-- to doubles here; this may change in the future.
 data MetricValue = DoubleValue Double | UnknownValue deriving (Show)
 
+-- |Value of a min/max/warn/crit threshold, subject to the same 
+-- constraints as MetricValue.
 data Threshold = DoubleThreshold Double | NoThreshold deriving (Show)
 
+-- |Encapsulates the data in a Nagios performance metric. A service can
+-- have several of these.
 data Metric = Metric {
     metricValue :: MetricValue,
     metricUOM   :: UOM,
@@ -61,8 +73,11 @@ data Metric = Metric {
     maxValue :: Threshold
 } deriving (Show)
 
+-- |List of metrics by metric name.
 type MetricList = [([Char], Metric)]
 
+-- |Nagios unit of measurement. NullUnit is an empty string in the 
+-- check result; UnknownUOM indicates a failure to parse.
 data UOM = Second | Millisecond | Microsecond | Percent | Byte | Kilobyte | Megabyte | Terabyte | Counter | NullUnit | UnknownUOM
     deriving (Show)
 
