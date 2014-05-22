@@ -253,3 +253,10 @@ extractPerfdata m = case (extract m) of
                                          case pMetrics of 
                                              Nothing -> return Nothing
                                              Just ms -> return $ Just $ Perfdata typ t name state ms
+
+perfdataFromByteString :: S.ByteString -> Either ParserError Perfdata
+perfdataFromByteString s = case (getItems s) of
+    Left err -> Left err
+    Right is -> extractPerfdata is
+  where
+    getItems = extractItems . parseLine
