@@ -83,7 +83,7 @@ data HostOrService = Service ServicePerfdata | Host
 
 data Perfdata = Perfdata {
     dataType :: HostOrService,
-    timestamp :: Word64,
+    timestamp :: Int64,
     hostname :: S.ByteString,
     hostState :: S.ByteString,
     perfMetrics   :: MetricList
@@ -195,7 +195,7 @@ metricLine :: Parser MetricList
 metricLine = many (metric <* (skipMany (char8 ';') <* skipSpace))
 
 parseMetricString :: S.ByteString -> Either ParserError MetricList
-parseMetricString mStr = completeParse (parse metricLine mStr)
+parseMetricString = completeParse . parse metricLine
   where
     completeParse r = case r of
         Done _ m -> Right m
@@ -227,11 +227,29 @@ parseMetrics typ m = do
             Right metrics -> return $ Just metrics
 
 extractPerfdata :: ItemMap -> Either ParserError Perfdata
-extractPerfdata m = do
-    let (datum,err) =  flip runState Nothing $ do 
-                           dType <- parseDataType m
-                           hName <- parseHostname m
-                           tStamp <- parseTimestamp m
-                           hState <- parseHostState m
-                           return Nothing
-    Left ""
+extractPerfdata m = case (extract m) of
+    (_, Just err) -> Left err
+    (Just res, Nothing)    -> Right res
+    (Nothing, Nothing)     -> Left "Perfdata parser is buggy."
+  where
+    extract m = flip runState Nothing $ do 
+        dType <- parseDataType m
+        case dType of 
+             Nothing -> return Nothing
+             Just typ -> do
+                 hName <- parseHostname m
+                 case hName of
+                     Nothing -> return Nothing
+                     Just name -> do
+                         tStamp <- parseTimestamp m
+                         case tStamp of 
+                             Nothing -> return Nothing
+                             Just t -> do
+                                 hState <- parseHostState m
+                                 case hState of
+                                     Nothing -> return Nothing
+                                     Just state -> do
+                                         pMetrics <- parseMetrics typ m
+                                         case pMetrics of 
+                                             Nothing -> return Nothing
+                                             Just ms -> return $ Just $ Perfdata typ t name state ms
