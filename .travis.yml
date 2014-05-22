@@ -1,0 +1,21 @@
+language: haskell
+
+env:
+  - 'UBUNTU_RELEASE=saucy'
+  - 'UBUNTU_RELEASE=trusty'
+
+before_install:
+  - 'sudo apt-get install cabal-install ghc happy'
+  - 'sudo apt-get install gearman-server'
+  - sudo su -c 'echo "ENABLED=\"true\"" >> /etc/default/gearman-server'
+  - sudo gearmand -p 4730 -d
+
+install:
+  - 'cabal update'
+  - 'cabal install --only-dependencies --enable-tests --enable-benchmarks'
+
+script:
+  - 'cabal configure'
+  - 'cabal build'
+  - 'cabal test'
+  - 'cabal sdist'
