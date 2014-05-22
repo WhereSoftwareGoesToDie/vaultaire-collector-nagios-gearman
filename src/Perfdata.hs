@@ -298,7 +298,7 @@ extractPerfdata m = case (extract m) of
                                              Just ms -> return $ Just $ Perfdata typ t name state ms
 
 -- |Extract perfdata from a Nagios check result formatted according 
--- to [0].
+-- to the Nagios plugin development guidelines[0].
 -- [0] https://nagios-plugins.org/doc/guidelines.html                                           
 perfdataFromByteString :: S.ByteString -> Either ParserError Perfdata
 perfdataFromByteString s = case (getItems s) of
