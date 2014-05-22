@@ -3,11 +3,13 @@
 module Perfdata where
 
 import Prelude hiding (takeWhile)
+import Data.Int
 import Control.Monad
 import Control.Applicative
 import Control.Monad.State
 import Data.Attoparsec.ByteString.Char8
 import qualified Data.ByteString as S
+import Data.ByteString.Char8 (readInteger)
 import Data.Word
 import Data.List hiding (takeWhile)
 import qualified Data.Map as M
@@ -57,7 +59,6 @@ data Perfdata = Perfdata {
     timestamp :: Word64,
     hostname :: S.ByteString,
     hostState :: S.ByteString,
-    hostStateType :: S.ByteString,
     perfMetrics   :: MetricMap
 }
 
@@ -86,7 +87,7 @@ parseServiceData m = case (M.lookup "SERVICEDESC" m) of
         Nothing -> do
             put $ Just "SERVICESTATE not found"
             return Nothing
-        Just state -> return $ Just $ ServicePerfdata desc state
+        Just sState -> return $ Just $ ServicePerfdata desc sState
 
 parseDataType :: ItemMap -> ErrorState (Maybe HostOrService)
 parseDataType m = case (M.lookup "DATATYPE" m) of
@@ -100,10 +101,33 @@ parseDataType m = case (M.lookup "DATATYPE" m) of
             case serviceData of
                 Nothing -> return Nothing
                 Just d -> return $ Just $ Service d
+        x                 -> do 
+                            put $ Just  "Invalid datatype"
+                            return Nothing
+
+parseHostname :: ItemMap -> ErrorState (Maybe S.ByteString)
+parseHostname m = case (M.lookup "HOSTNAME" m) of
+    Nothing -> do
+        put $ Just "HOSTNAME not found"
+        return Nothing
+    Just h -> return $ Just h
+
+parseTimestamp :: ItemMap -> ErrorState (Maybe Int64)
+parseTimestamp m = case (M.lookup "TIMET" m) of
+    Nothing -> do
+        put $ Just "TIMET not found"
+        return Nothing
+    Just t  -> case (readInteger t) of
+        Nothing -> do
+            put $ Just "Invalid timestamp"
+            return Nothing
+        Just (n, _) -> return $ Just $ fromInteger n
 
 extractPerfdata :: ItemMap -> Either ParserError Perfdata
 extractPerfdata m = do
     let (datum,err) =  flip runState Nothing $ do 
-                           dataType <- parseDataType m
+                           dType <- parseDataType m
+                           hName <- parseHostname m
+                           tStamp <- parseTimestamp m
                            return Nothing
     Left ""
