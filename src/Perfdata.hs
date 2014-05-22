@@ -15,7 +15,7 @@ import Data.List hiding (takeWhile)
 import qualified Data.Map as M
 
 data Item = Item {
-    name :: S.ByteString,
+    label :: S.ByteString,
     content :: S.ByteString
 } deriving (Show)
 
@@ -40,20 +40,20 @@ line = many item
 
 type ItemMap = M.Map S.ByteString S.ByteString
 
-data MetricValue = DoubleValue Double | UnknownValue
+data MetricValue = DoubleValue Double | UnknownValue deriving (Show)
 
-data Threshold = DoubleThreshold Double | NoThreshold
+data Threshold = DoubleThreshold Double | NoThreshold deriving (Show)
 
 data Metric = Metric {
-    minValue :: Threshold,
-    maxValue :: Threshold,
+    metricValue :: MetricValue,
+    metricUOM   :: UOM,
     warnValue :: Threshold,
     critValue :: Threshold,
-    metricValue :: MetricValue,
-    metricUOM   :: UOM
-}
+    minValue :: Threshold,
+    maxValue :: Threshold
+} deriving (Show)
 
-type MetricList = [(S.ByteString, MetricValue)]
+type MetricList = [(S.ByteString, Metric)]
 
 data UOM = Second | Millisecond | Microsecond | Percent | Byte | Kilobyte | Megabyte | Terabyte | Counter | NullUnit | UnknownUOM
     deriving (Show)
@@ -72,7 +72,7 @@ uomFromString "" = NullUnit
 uomFromString _ = UnknownUOM
 
 mapItems :: [Item] -> ItemMap
-mapItems = foldl (\m i -> M.insert (name i) (content i) m) M.empty
+mapItems = foldl (\m i -> M.insert (label i) (content i) m) M.empty
 
 data ServicePerfdata = ServicePerfdata {
     serviceDescription :: S.ByteString,
@@ -128,7 +128,7 @@ parseDataType m = case (M.lookup "DATATYPE" m) of
             case serviceData of
                 Nothing -> return Nothing
                 Just d -> return $ Just $ Service d
-        x                 -> do 
+        _                 -> do 
                             put $ Just  "Invalid datatype"
                             return Nothing
 
@@ -173,8 +173,20 @@ metricName = (option quote (char quote)) *>
 value :: Parser MetricValue
 value = option UnknownValue (double >>= (return . DoubleValue))
 
-metric :: Parser (S.ByteString, MetricValue)
-metric = undefined
+threshold :: Parser Threshold
+threshold = (char8 ';') *> option NoThreshold (double >>= (return . DoubleThreshold))
+
+metric :: Parser ([Char], Metric)
+metric = do
+    name <- metricName
+    void $ char8 '='
+    m    <- Metric `fmap` value <*>
+                          uom <*>
+                          (option NoThreshold threshold) <*>
+                          (option NoThreshold threshold) <*>
+                          (option NoThreshold threshold) <*>
+                          (option NoThreshold threshold) 
+    return (name, m)
 
 parseMetricString :: S.ByteString -> Either ParserError MetricList
 parseMetricString mStr = undefined
