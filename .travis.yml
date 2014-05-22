@@ -13,6 +13,9 @@ before_install:
 install:
   - 'cabal update'
   - 'cabal install --only-dependencies --enable-tests --enable-benchmarks'
+  - 'git clone https://github.com/anchor/vaultaire'
+  - 'cd vaultaire'
+  - 'cabal install'
 
 script:
   - 'cabal configure'
