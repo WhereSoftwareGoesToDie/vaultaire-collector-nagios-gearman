@@ -16,7 +16,7 @@ import qualified Data.Map as M
 
 data Item = Item {
     name :: S.ByteString,
-    value :: S.ByteString
+    content :: S.ByteString
 } deriving (Show)
 
 separator :: Parser [Word8]
@@ -42,6 +42,17 @@ type ItemMap = M.Map S.ByteString S.ByteString
 
 data MetricValue = DoubleValue Double | UnknownValue
 
+data Threshold = DoubleThreshold Double | NoThreshold
+
+data Metric = Metric {
+    minValue :: Threshold,
+    maxValue :: Threshold,
+    warnValue :: Threshold,
+    critValue :: Threshold,
+    metricValue :: MetricValue,
+    metricUOM   :: UOM
+}
+
 type MetricList = [(S.ByteString, MetricValue)]
 
 data UOM = Second | Millisecond | Microsecond | Percent | Byte | Kilobyte | Megabyte | Terabyte | Counter | NullUnit | UnknownUOM
@@ -61,7 +72,7 @@ uomFromString "" = NullUnit
 uomFromString _ = UnknownUOM
 
 mapItems :: [Item] -> ItemMap
-mapItems = foldl (\m i -> M.insert (name i) (value i) m) M.empty
+mapItems = foldl (\m i -> M.insert (name i) (content i) m) M.empty
 
 data ServicePerfdata = ServicePerfdata {
     serviceDescription :: S.ByteString,
@@ -159,8 +170,8 @@ metricName = (option quote (char quote)) *>
     nameChar '='  = False
     nameChar _    = True
 
-metricValue :: Parser MetricValue
-metricValue = option UnknownValue (double >>= (return . DoubleValue))
+value :: Parser MetricValue
+value = option UnknownValue (double >>= (return . DoubleValue))
 
 metric :: Parser (S.ByteString, MetricValue)
 metric = undefined
