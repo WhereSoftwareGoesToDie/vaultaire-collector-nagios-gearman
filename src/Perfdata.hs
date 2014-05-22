@@ -1,6 +1,14 @@
 {-# LANGUAGE OverloadedStrings #-}
 
-module Perfdata where
+module Perfdata(
+    perfdataFromByteString,
+    Perfdata,
+    MetricList,
+    Metric,
+    HostOrService,
+    ServicePerfdata,
+    ParserError
+) where
 
 import Prelude hiding (takeWhile)
 import Data.Int
@@ -9,7 +17,7 @@ import Control.Applicative
 import Control.Monad.State
 import Data.Attoparsec.ByteString.Char8
 import qualified Data.ByteString as S
-import Data.ByteString.Char8 (readInteger, pack)
+import Data.ByteString.Char8 (readInteger)
 import Data.Word
 import Data.List hiding (takeWhile)
 import qualified Data.Map as M
