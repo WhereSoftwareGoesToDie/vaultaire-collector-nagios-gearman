@@ -94,9 +94,12 @@ type ParserError = [Char]
 parseLine :: S.ByteString -> Result [Item]
 parseLine = parse line
 
+fmtParseError :: [String] -> String -> String
+fmtParseError ctxs err = concat $ err : "\n" : (intercalate "," ctxs) : []
+
 extractItems :: Result [Item] -> Either ParserError ItemMap
 extractItems (Done _ is) = Right $ mapItems is
-extractItems (Fail _ ctxs err) = Left $ concat $ err : "\n" : (intercalate "," ctxs) : []
+extractItems (Fail _ ctxs err) = Left $ fmtParseError ctxs err
 extractItems (Partial f) = extractItems (f "")
 
 type MaybeError = Maybe ParserError
@@ -192,7 +195,12 @@ metricLine :: Parser MetricList
 metricLine = many (metric <* (skipMany (char8 ';') <* skipSpace))
 
 parseMetricString :: S.ByteString -> Either ParserError MetricList
-parseMetricString mStr = undefined
+parseMetricString mStr = completeParse (parse metricLine mStr)
+  where
+    completeParse r = case r of
+        Done _ m -> Right m
+        Fail _ ctxs err -> Left $ fmtParseError ctxs err
+        Partial parseRest -> completeParse (parseRest "")
 
 parseHostMetrics :: ItemMap -> Either ParserError MetricList
 parseHostMetrics m = case (M.lookup "HOSTPERFDATA" m) of
