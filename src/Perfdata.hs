@@ -241,17 +241,13 @@ parseMetrics typ m = do
 -- |Given an item map extracted from a check result, parse and return 
 -- a Perfdata object.
 extractPerfdata :: ItemMap -> Either ParserError Perfdata
-extractPerfdata m = case (parseDataType m) of 
-    Left err -> Left err
-    Right typ -> case (parseHostname m) of
-        Left err -> Left err
-        Right name -> case (parseTimestamp m) of
-            Left err -> Left err
-            Right t -> case (parseHostState m) of
-               Left err -> Left err
-               Right state -> case (parseMetrics typ m) of
-                   Left err -> Left err
-                   Right ms -> Right $ Perfdata typ t name state ms
+extractPerfdata m = do
+    typ <- parseDataType m
+    name <- parseHostname m
+    t <- parseTimestamp m
+    state <- parseHostState m
+    ms <- parseMetrics typ m
+    return $ Perfdata typ t name state ms
 
 -- |Extract perfdata from a Nagios check result formatted according 
 -- to the Nagios plugin development guidelines[0].
