@@ -253,8 +253,7 @@ extractPerfdata m = do
 -- to the Nagios plugin development guidelines[0].
 -- [0] https://nagios-plugins.org/doc/guidelines.html                                           
 perfdataFromByteString :: S.ByteString -> Either ParserError Perfdata
-perfdataFromByteString s = case (getItems s) of
-    Left err -> Left err
-    Right is -> extractPerfdata is
+perfdataFromByteString s = do
+    getItems s >>= extractPerfdata
   where
     getItems = extractItems . parseLine
