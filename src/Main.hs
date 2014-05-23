@@ -37,11 +37,14 @@ collectorOptionParser =
 
 collector :: CollectorOptions -> IO ()
 collector CollectorOptions{..} = do
-    let processDatum _ = return $ Right "test"
     runGearman optGearmanHost optGearmanPort $ runWorker 2 $ do
         void $ addFunc "service" processDatum Nothing
         work
     putStrLn "done"
+  where
+    processDatum Job{..} = do
+        print jobData
+        return $ Right  "done"
 
 main :: IO ()
 main = execParser collectorOptionParser >>= collector
