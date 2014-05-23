@@ -14,7 +14,6 @@ import Prelude hiding (takeWhile)
 import Data.Int
 import Control.Monad
 import Control.Applicative
-import Control.Monad.State
 import Data.Attoparsec.ByteString.Char8
 import qualified Data.ByteString as S
 import Data.ByteString.Char8 (readInteger)
@@ -139,63 +138,43 @@ type MaybeError = Maybe ParserError
 
 type MaybePerfdata = Maybe Perfdata
 
-type ErrorState = State MaybeError
-
 -- |Called if the check output is from a service check. Returns the 
 -- service-specific component of the perfdata.
-parseServiceData :: ItemMap -> ErrorState (Maybe ServicePerfdata)
+parseServiceData :: ItemMap -> Either ParserError ServicePerfdata
 parseServiceData m = case (M.lookup "SERVICEDESC" m) of
-    Nothing -> do
-        put $ Just "SERVICEDESC not found"
-        return Nothing
+    Nothing -> Left "SERVICEDESC not found" 
     Just desc -> case (M.lookup "SERVICESTATE" m) of
-        Nothing -> do
-            put $ Just "SERVICESTATE not found"
-            return Nothing
-        Just sState -> return $ Just $ ServicePerfdata desc sState
+        Nothing -> Left "SERVICESTATE not found"
+        Just sState -> Right $ ServicePerfdata desc sState
 
 -- |Whether this perfdata item is for a host check or a service check 
 -- (or Nothing on failure to determine). 
-parseDataType :: ItemMap -> ErrorState (Maybe HostOrService)
+parseDataType :: ItemMap -> Either ParserError HostOrService
 parseDataType m = case (M.lookup "DATATYPE" m) of
-    Nothing -> do
-        put $ Just "DATATYPE not found"
-        return Nothing
+    Nothing -> Left "DATATYPE not found"
     Just s -> case s of
-        "HOSTPERFDATA" -> return $ Just Host
-        "SERVICEPERFDATA" -> do
-            serviceData <- parseServiceData m
-            case serviceData of
-                Nothing -> return Nothing
-                Just d -> return $ Just $ Service d
-        _                 -> do 
-                            put $ Just  "Invalid datatype"
-                            return Nothing
+        "HOSTPERFDATA" -> Right Host
+        "SERVICEPERFDATA" -> case (parseServiceData m) of
+            Left err -> Left err
+            Right d -> Right $ Service d
+        _                 -> Left "Invalid datatype"
 
-parseHostname :: ItemMap -> ErrorState (Maybe S.ByteString)
+parseHostname :: ItemMap -> Either ParserError S.ByteString
 parseHostname m = case (M.lookup "HOSTNAME" m) of
-    Nothing -> do
-        put $ Just "HOSTNAME not found"
-        return Nothing
-    Just h -> return $ Just h
+    Nothing -> Left "HOSTNAME not found"
+    Just h -> Right h
 
-parseTimestamp :: ItemMap -> ErrorState (Maybe Int64)
+parseTimestamp :: ItemMap -> Either ParserError Int64
 parseTimestamp m = case (M.lookup "TIMET" m) of
-    Nothing -> do
-        put $ Just "TIMET not found"
-        return Nothing
+    Nothing -> Left "TIMET not found"
     Just t  -> case (readInteger t) of
-        Nothing -> do
-            put $ Just "Invalid timestamp"
-            return Nothing
-        Just (n, _) -> return $ Just $ fromInteger n
+        Nothing -> Left "Invalid timestamp"
+        Just (n, _) -> Right $ fromInteger n
 
-parseHostState :: ItemMap -> ErrorState (Maybe S.ByteString)
+parseHostState :: ItemMap -> Either ParserError S.ByteString
 parseHostState m = case (M.lookup "HOSTSTATE" m) of
-    Nothing -> do
-        put $ Just "HOSTSTATE not found"
-        return Nothing
-    Just s -> return $ Just s
+    Nothing -> Left "HOSTSTATE not found"
+    Just s -> Right s
 
 uom :: Parser UOM
 uom = option "" (many letter_ascii) >>= (return . uomFromString)
@@ -253,49 +232,26 @@ parseServiceMetrics m = case (M.lookup "SERVICEPERFDATA" m) of
 
 -- |Given an item map extracted from a check result, parse and return 
 -- the performance metrics (or store an error and return Nothing). 
-parseMetrics :: HostOrService -> ItemMap -> ErrorState (Maybe MetricList)
+parseMetrics :: HostOrService -> ItemMap -> Either ParserError MetricList
 parseMetrics typ m = do
     case typ of
-        Host -> case (parseHostMetrics m) of
-            Left err -> do
-                put $ Just err
-                return Nothing
-            Right metrics -> return $ Just metrics
-        Service _ -> case (parseServiceMetrics m) of
-            Left err -> do
-                put $ Just err
-                return Nothing
-            Right metrics -> return $ Just metrics
+        Host -> parseHostMetrics m
+        Service _ -> parseServiceMetrics m
 
 -- |Given an item map extracted from a check result, parse and return 
 -- a Perfdata object.
 extractPerfdata :: ItemMap -> Either ParserError Perfdata
-extractPerfdata m = case (extract m) of
-    (_, Just err) -> Left err
-    (Just res, Nothing)    -> Right res
-    (Nothing, Nothing)     -> Left "Perfdata parser is buggy."
-  where
-    extract m = flip runState Nothing $ do 
-        dType <- parseDataType m
-        case dType of 
-             Nothing -> return Nothing
-             Just typ -> do
-                 hName <- parseHostname m
-                 case hName of
-                     Nothing -> return Nothing
-                     Just name -> do
-                         tStamp <- parseTimestamp m
-                         case tStamp of 
-                             Nothing -> return Nothing
-                             Just t -> do
-                                 hState <- parseHostState m
-                                 case hState of
-                                     Nothing -> return Nothing
-                                     Just state -> do
-                                         pMetrics <- parseMetrics typ m
-                                         case pMetrics of 
-                                             Nothing -> return Nothing
-                                             Just ms -> return $ Just $ Perfdata typ t name state ms
+extractPerfdata m = case (parseDataType m) of 
+    Left err -> Left err
+    Right typ -> case (parseHostname m) of
+        Left err -> Left err
+        Right name -> case (parseTimestamp m) of
+            Left err -> Left err
+            Right t -> case (parseHostState m) of
+               Left err -> Left err
+               Right state -> case (parseMetrics typ m) of
+                   Left err -> Left err
+                   Right ms -> Right $ Perfdata typ t name state ms
 
 -- |Extract perfdata from a Nagios check result formatted according 
 -- to the Nagios plugin development guidelines[0].
