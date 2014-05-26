@@ -1,4 +1,5 @@
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE RecordWildCards #-}
 
 module Main where
@@ -6,12 +7,15 @@ module Main where
 import System.Gearman.Worker
 import System.Gearman.Connection
 import Control.Monad
+import Control.Monad.Reader
 import Options.Applicative
+import qualified Data.ByteString as S
 
 data CollectorOptions = CollectorOptions {
     optGearmanHost :: String,
     optGearmanPort :: String,
-    optWorkerThreads :: Int
+    optWorkerThreads :: Int,
+    optVerbose       :: Bool
 }
 
 opts :: Parser CollectorOptions
@@ -35,6 +39,10 @@ opts = CollectorOptions
             <> value 2
             <> showDefault
             <> help "Number of worker threads to run.")
+       <*> switch
+           (long "verbose"
+            <> short 'v'
+            <> help "Write debugging output to stdout.")
 
 collectorOptionParser :: ParserInfo CollectorOptions
 collectorOptionParser = 
@@ -43,16 +51,28 @@ collectorOptionParser =
         progDesc "Vaultaire collector for Nagios with mod_gearman" <>
         header "vaultaire-collector-nagios-gearman - daemon to write Nagios perfdata to Vaultaire")
 
-collector :: CollectorOptions -> IO ()
-collector CollectorOptions{..} = do
-    runGearman optGearmanHost optGearmanPort $ runWorker optWorkerThreads $ do
+newtype CollectorMonad a = CollectorMonad (ReaderT CollectorOptions IO a)
+    deriving (Functor, Applicative, Monad, MonadIO, MonadReader CollectorOptions)
+
+putDebug :: Show a => a -> CollectorMonad ()
+putDebug msg = do
+    CollectorOptions{..} <- ask
+    case optVerbose of
+        True -> liftIO $ putStrLn (show msg) >> return ()
+        False -> return ()
+
+collector :: CollectorMonad ()
+collector = do
+    CollectorOptions{..} <- ask
+    liftIO $ runGearman optGearmanHost optGearmanPort $ runWorker optWorkerThreads $ do
         void $ addFunc "service" processDatum Nothing
         work
-    putStrLn "done"
+    return ()
   where
-    processDatum Job{..} = do
-        print jobData
-        return $ Right  "done"
+    processDatum Job{..} = return $ Right "done"
+
+runCollector :: CollectorOptions -> CollectorMonad a -> IO a
+runCollector op (CollectorMonad act) = runReaderT act op
 
 main :: IO ()
-main = execParser collectorOptionParser >>= collector
+main = execParser collectorOptionParser >>= flip runCollector collector
