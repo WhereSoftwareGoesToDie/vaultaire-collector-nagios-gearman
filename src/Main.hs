@@ -29,7 +29,7 @@ opts = CollectorOptions
        <*> strOption
            (long "gearman-port"
             <> short 'p'
-            <> value "4370"
+            <> value "4730"
             <> metavar "GEARMANPORT"
             <> help "Port number Gearman server is listening on.")
        <*> option
