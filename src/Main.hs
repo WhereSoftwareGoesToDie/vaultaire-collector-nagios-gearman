@@ -10,14 +10,15 @@ import Options.Applicative
 
 data CollectorOptions = CollectorOptions {
     optGearmanHost :: String,
-    optGearmanPort :: String
+    optGearmanPort :: String,
+    optWorkerThreads :: Int
 }
 
 opts :: Parser CollectorOptions
 opts = CollectorOptions
        <$> strOption
            (long "gearman-host"
-            <> short 'h'
+            <> short 'g'
             <> value "localhost"
             <> metavar "GEARMANHOST"
             <> help "Hostname of Gearman server.")
@@ -27,6 +28,13 @@ opts = CollectorOptions
             <> value "4370"
             <> metavar "GEARMANPORT"
             <> help "Port number Gearman server is listening on.")
+       <*> option
+           (long "workers" 
+            <> short 'w'
+            <> metavar "WORKERS"
+            <> value 2
+            <> showDefault
+            <> help "Number of worker threads to run.")
 
 collectorOptionParser :: ParserInfo CollectorOptions
 collectorOptionParser = 
@@ -37,7 +45,7 @@ collectorOptionParser =
 
 collector :: CollectorOptions -> IO ()
 collector CollectorOptions{..} = do
-    runGearman optGearmanHost optGearmanPort $ runWorker 2 $ do
+    runGearman optGearmanHost optGearmanPort $ runWorker optWorkerThreads $ do
         void $ addFunc "service" processDatum Nothing
         work
     putStrLn "done"
