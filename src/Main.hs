@@ -10,12 +10,14 @@ import Control.Monad
 import Control.Monad.Reader
 import Options.Applicative
 import qualified Data.ByteString as S
+import qualified Data.ByteString.Lazy.Char8 as L 
 
 data CollectorOptions = CollectorOptions {
     optGearmanHost :: String,
     optGearmanPort :: String,
     optWorkerThreads :: Int,
-    optVerbose       :: Bool
+    optVerbose       :: Bool,
+    optFunctionName  :: String
 }
 
 opts :: Parser CollectorOptions
@@ -43,6 +45,13 @@ opts = CollectorOptions
            (long "verbose"
             <> short 'v'
             <> help "Write debugging output to stdout.")
+       <*> strOption
+           (long "function-name"
+            <> short 'f'
+            <> value "service"
+            <> metavar "FUNCTIONNAME"
+            <> showDefault
+            <> help "Name of function to register with Gearman server.")
 
 collectorOptionParser :: ParserInfo CollectorOptions
 collectorOptionParser = 
@@ -65,7 +74,7 @@ collector :: CollectorMonad ()
 collector = do
     CollectorOptions{..} <- ask
     liftIO $ runGearman optGearmanHost optGearmanPort $ runWorker optWorkerThreads $ do
-        void $ addFunc "service" processDatum Nothing
+        void $ addFunc (L.pack optFunctionName) processDatum Nothing
         work
     return ()
   where
