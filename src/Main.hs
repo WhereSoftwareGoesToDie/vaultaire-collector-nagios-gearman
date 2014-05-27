@@ -48,7 +48,7 @@ opts = CollectorOptions
        <*> strOption
            (long "function-name"
             <> short 'f'
-            <> value "service"
+            <> value "check_results"
             <> metavar "FUNCTIONNAME"
             <> showDefault
             <> help "Name of function to register with Gearman server.")
