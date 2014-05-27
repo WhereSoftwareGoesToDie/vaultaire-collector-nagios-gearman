@@ -65,7 +65,7 @@ collector :: CollectorMonad ()
 collector = do
     CollectorOptions{..} <- ask
     liftIO $ runGearman optGearmanHost optGearmanPort $ runWorker optWorkerThreads $ do
-        void $ addFunc "check_results" processDatum Nothing
+        void $ addFunc "service" processDatum Nothing
         work
     return ()
   where
