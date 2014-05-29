@@ -14,11 +14,12 @@ import qualified Data.ByteString as S
 import qualified Data.ByteString.Lazy.Char8 as L 
 
 data CollectorOptions = CollectorOptions {
-    optGearmanHost :: String,
-    optGearmanPort :: String,
+    optGearmanHost   :: String,
+    optGearmanPort   :: String,
     optWorkerThreads :: Int,
     optVerbose       :: Bool,
-    optFunctionName  :: String
+    optFunctionName  :: String,
+    optKeyFile       :: String
 }
 
 opts :: Parser CollectorOptions
@@ -50,9 +51,15 @@ opts = CollectorOptions
            (long "function-name"
             <> short 'f'
             <> value "check_results"
-            <> metavar "FUNCTIONNAME"
+            <> metavar "FUNCTION-NAME"
             <> showDefault
             <> help "Name of function to register with Gearman server.")
+       <*> strOption
+           (long "key-file"
+            <> short 'k'
+            <> value ""
+            <> metavar "KEY-FILE"
+            <> help "File from which to read AES key to decrypt check results. If unspecified, results are assumed to be in cleartext.")
 
 collectorOptionParser :: ParserInfo CollectorOptions
 collectorOptionParser = 
