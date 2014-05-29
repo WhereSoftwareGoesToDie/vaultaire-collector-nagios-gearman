@@ -78,7 +78,9 @@ collector = do
         work
     return ()
   where
-    processDatum Job{..} = return $ Right "done"
+    processDatum Job{..} = do
+        liftIO $ putStrLn (show jobData)
+        return $ Right "done"
 
 runCollector :: CollectorOptions -> CollectorMonad a -> IO a
 runCollector op (CollectorMonad act) = runReaderT act op
