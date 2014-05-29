@@ -11,7 +11,7 @@ license:             MIT
 license-file:        LICENSE
 author:              Sharif Olorin
 maintainer:          sio@tesser.org
--- copyright:           
+copyright:           Anchor Systems and others
 category:            System
 build-type:          Simple
 extra-source-files:  README.md
@@ -23,12 +23,10 @@ executable vaultaire-collector-nagios-gearman
   include-dirs:        .
   build-depends:       base >=4.6,
                        gearman-haskell,
-                       attoparsec,
                        bytestring,
                        containers,
-                       mtl,
-                       optparse-applicative
-  -- hs-source-dirs:      
+                       optparse-applicative,
+                       nagios-perfdata
   default-language:    Haskell2010
   ghc-options:         -O2
                        -threaded

@@ -4,6 +4,7 @@
 
 module Main where
 
+import Data.Nagios.Perfdata
 import System.Gearman.Worker
 import System.Gearman.Connection
 import Control.Monad
