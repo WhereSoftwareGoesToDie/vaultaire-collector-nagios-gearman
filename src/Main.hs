@@ -15,6 +15,7 @@ import Options.Applicative
 import Crypto.Cipher.AES
 import qualified Data.ByteString as S
 import qualified Data.ByteString.Lazy.Char8 as L 
+import qualified Data.ByteString.Base64 as B64
 
 data CollectorOptions = CollectorOptions {
     optGearmanHost   :: String,
@@ -97,7 +98,7 @@ collector = do
     processDatum k Job{..} = do
         liftIO $ putStrLn $ show $ clearBytes k jobData
         return $ Right "done"
-    clearBytes k d = maybeDecrypt k $ (S.concat . L.toChunks) d
+    clearBytes k d = decodeJob k $ (S.concat . L.toChunks) d
 
 loadKey :: String -> IO (Either IOException AES)
 loadKey fname = try $ S.readFile fname >>= return . initAES . trim 
@@ -105,6 +106,11 @@ loadKey fname = try $ S.readFile fname >>= return . initAES . trim
     trim = trim' . trim'
     trim' = S.reverse . S.dropWhile isBlank
     isBlank = flip elem (S.unpack " \n")
+
+decodeJob :: Maybe AES -> S.ByteString -> Either String S.ByteString
+decodeJob k d = case (B64.decode d) of 
+    Right d' -> Right $ maybeDecrypt k d'
+    Left e   -> Left e
 
 maybeDecrypt :: Maybe AES -> S.ByteString -> S.ByteString
 maybeDecrypt aes ciphertext = case aes of 
