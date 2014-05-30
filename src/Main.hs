@@ -5,6 +5,7 @@
 module Main where
 
 import Data.Byteable
+import Data.Word
 import Data.Nagios.Perfdata
 import System.Gearman.Worker
 import System.Gearman.Connection
@@ -94,11 +95,17 @@ collector = do
         void $ addFunc (L.pack optFunctionName) (processDatum collectorAES) Nothing
         work
     return ()
-  where
-    processDatum k Job{..} = do
-        liftIO $ putStrLn $ show $ clearBytes k jobData
+
+processDatum :: Maybe AES -> Job -> IO (Either JobError L.ByteString)
+processDatum key Job{..} = case (clearBytes key jobData) of
+    Left e -> return $ Left (Just $ L.pack e)
+    Right checkResult -> do
+        (putStrLn . show . trimNulls) checkResult
         return $ Right "done"
+  where
     clearBytes k d = decodeJob k $ (S.concat . L.toChunks) d
+    trimNulls :: S.ByteString -> S.ByteString
+    trimNulls = S.reverse . (S.dropWhile ((==) (0))) . S.reverse
 
 loadKey :: String -> IO (Either IOException AES)
 loadKey fname = try $ S.readFile fname >>= return . initAES . trim 
