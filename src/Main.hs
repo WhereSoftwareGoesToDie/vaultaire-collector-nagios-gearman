@@ -101,6 +101,13 @@ collector = do
 loadKey :: String -> IO (Either IOException AES)
 loadKey fname = try $ S.readFile fname >>= return . initAES
 
+decrypt :: S.ByteString -> CollectorMonad S.ByteString
+decrypt ciphertext = do
+    CollectorState{..} <- ask
+    return $ case collectorAES of 
+        Nothing -> ciphertext -- Nothing to do, we assume the input is already in cleartext.
+        Just k -> decryptECB k ciphertext
+
 runCollector :: CollectorOptions -> CollectorMonad a -> IO a
 runCollector op (CollectorMonad act) = do
     let CollectorOptions{..} = op
