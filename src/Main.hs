@@ -4,12 +4,14 @@
 
 module Main where
 
+import Data.Byteable
 import Data.Nagios.Perfdata
 import System.Gearman.Worker
 import System.Gearman.Connection
 import Control.Monad
 import Control.Monad.Reader
 import Options.Applicative
+import Crypto.Cipher.AES
 import qualified Data.ByteString as S
 import qualified Data.ByteString.Lazy.Char8 as L 
 
@@ -66,19 +68,26 @@ collectorOptionParser =
         progDesc "Vaultaire collector for Nagios with mod_gearman" &
         header "vaultaire-collector-nagios-gearman - daemon to write Nagios perfdata to Vaultaire")
 
-newtype CollectorMonad a = CollectorMonad (ReaderT CollectorOptions IO a)
-    deriving (Functor, Applicative, Monad, MonadIO, MonadReader CollectorOptions)
+data CollectorState = CollectorState {
+    collectorOpts :: CollectorOptions,
+    collectorAES  :: AES
+}
+
+newtype CollectorMonad a = CollectorMonad (ReaderT CollectorState IO a)
+    deriving (Functor, Applicative, Monad, MonadIO, MonadReader CollectorState)
 
 putDebug :: Show a => a -> CollectorMonad ()
 putDebug msg = do
-    CollectorOptions{..} <- ask
+    CollectorState{..} <- ask
+    let CollectorOptions{..} = collectorOpts
     case optVerbose of
         True -> liftIO $ putStrLn (show msg) >> return ()
         False -> return ()
 
 collector :: CollectorMonad ()
 collector = do
-    CollectorOptions{..} <- ask
+    CollectorState{..} <- ask
+    let CollectorOptions{..} = collectorOpts
     liftIO $ runGearman optGearmanHost optGearmanPort $ runWorker optWorkerThreads $ do
         void $ addFunc (L.pack optFunctionName) processDatum Nothing
         work
@@ -88,8 +97,14 @@ collector = do
         liftIO $ putStrLn (show jobData)
         return $ Right "done"
 
+loadKey :: String -> IO AES
+loadKey fname = S.readFile fname >>= return . initAES
+
 runCollector :: CollectorOptions -> CollectorMonad a -> IO a
-runCollector op (CollectorMonad act) = runReaderT act op
+runCollector op (CollectorMonad act) = do
+    let CollectorOptions{..} = op
+    aes <- loadKey optKeyFile
+    runReaderT act $ CollectorState op aes
 
 main :: IO ()
 main = execParser collectorOptionParser >>= flip runCollector collector
