@@ -90,23 +90,22 @@ collector = do
     CollectorState{..} <- ask
     let CollectorOptions{..} = collectorOpts
     liftIO $ runGearman optGearmanHost optGearmanPort $ runWorker optWorkerThreads $ do
-        void $ addFunc (L.pack optFunctionName) processDatum Nothing
+        void $ addFunc (L.pack optFunctionName) (processDatum collectorAES) Nothing
         work
     return ()
   where
-    processDatum Job{..} = do
-        liftIO $ putStrLn (show jobData)
+    processDatum k Job{..} = do
+        liftIO $ putStrLn $ show $ clearBytes k jobData
         return $ Right "done"
+    clearBytes k d = maybeDecrypt k $ (S.concat . L.toChunks) d
 
 loadKey :: String -> IO (Either IOException AES)
 loadKey fname = try $ S.readFile fname >>= return . initAES
 
-decrypt :: S.ByteString -> CollectorMonad S.ByteString
-decrypt ciphertext = do
-    CollectorState{..} <- ask
-    return $ case collectorAES of 
-        Nothing -> ciphertext -- Nothing to do, we assume the input is already in cleartext.
-        Just k -> decryptECB k ciphertext
+maybeDecrypt :: Maybe AES -> S.ByteString -> S.ByteString
+maybeDecrypt aes ciphertext = case aes of 
+    Nothing -> ciphertext -- Nothing to do, we assume the input is already in cleartext.
+    Just k -> decryptECB k ciphertext
 
 runCollector :: CollectorOptions -> CollectorMonad a -> IO a
 runCollector op (CollectorMonad act) = do
