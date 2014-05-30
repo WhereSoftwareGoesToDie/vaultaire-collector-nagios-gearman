@@ -8,6 +8,7 @@ import Data.Byteable
 import Data.Nagios.Perfdata
 import System.Gearman.Worker
 import System.Gearman.Connection
+import Control.Exception
 import Control.Monad
 import Control.Monad.Reader
 import Options.Applicative
@@ -70,7 +71,7 @@ collectorOptionParser =
 
 data CollectorState = CollectorState {
     collectorOpts :: CollectorOptions,
-    collectorAES  :: AES
+    collectorAES  :: Maybe AES
 }
 
 newtype CollectorMonad a = CollectorMonad (ReaderT CollectorState IO a)
@@ -97,14 +98,21 @@ collector = do
         liftIO $ putStrLn (show jobData)
         return $ Right "done"
 
-loadKey :: String -> IO AES
-loadKey fname = S.readFile fname >>= return . initAES
+loadKey :: String -> IO (Either IOException AES)
+loadKey fname = try $ S.readFile fname >>= return . initAES
 
 runCollector :: CollectorOptions -> CollectorMonad a -> IO a
 runCollector op (CollectorMonad act) = do
     let CollectorOptions{..} = op
-    aes <- loadKey optKeyFile
-    runReaderT act $ CollectorState op aes
+    case optKeyFile of
+        "" -> runReaderT act $ CollectorState op Nothing
+        keyFile -> do
+            aes <- loadKey keyFile
+            case aes of
+                Left e -> do
+                    putStrLn ("Error loading key: " ++ (show e)) 
+                    runReaderT act $ CollectorState op Nothing
+                Right k -> runReaderT act $ CollectorState op (Just k)
 
 main :: IO ()
 main = execParser collectorOptionParser >>= flip runCollector collector
