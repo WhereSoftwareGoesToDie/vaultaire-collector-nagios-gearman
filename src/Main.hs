@@ -80,30 +80,33 @@ newtype CollectorMonad a = CollectorMonad (ReaderT CollectorState IO a)
     deriving (Functor, Applicative, Monad, MonadIO, MonadReader CollectorState)
 
 putDebug :: Show a => a -> CollectorMonad ()
-putDebug msg = do
-    CollectorState{..} <- ask
-    let CollectorOptions{..} = collectorOpts
-    case optVerbose of
-        True -> liftIO $ putStrLn (show msg) >> return ()
-        False -> return ()
+putDebug msg = ask >>= liftIO . flip maybePut msg .  optVerbose . collectorOpts 
+
+maybePut :: Show a => Bool -> a -> IO ()
+maybePut orly msg = case orly of
+    True -> putStrLn (show msg) >> return ()
+    False -> return ()
 
 collector :: CollectorMonad ()
 collector = do
     CollectorState{..} <- ask
     let CollectorOptions{..} = collectorOpts
     liftIO $ runGearman optGearmanHost optGearmanPort $ runWorker optWorkerThreads $ do
-        void $ addFunc (L.pack optFunctionName) (processDatum collectorAES) Nothing
+        void $ addFunc (L.pack optFunctionName) (processDatum optVerbose collectorAES) Nothing
         work
     return ()
 
-processDatum :: Maybe AES -> Job -> IO (Either JobError L.ByteString)
-processDatum key Job{..} = case (clearBytes key jobData) of
+processDatum :: Bool -> 
+                Maybe AES -> 
+                Job -> 
+                IO (Either JobError L.ByteString)
+processDatum dbg key Job{..} = case (clearBytes key jobData) of
     Left e -> do
-        putStrLn ("error decoding: " ++ e)
-        putStrLn (show jobData)
+        maybePut dbg ("error decoding: " ++ e)
+        maybePut dbg jobData
         return $ Left (Just $ L.pack e)
     Right checkResult -> do
-        (putStrLn . show . trimNulls) checkResult
+        ((maybePut dbg) . trimNulls) checkResult
         return $ Right "done"
   where
     clearBytes k d = decodeJob k $ (S.concat . L.toChunks) d
