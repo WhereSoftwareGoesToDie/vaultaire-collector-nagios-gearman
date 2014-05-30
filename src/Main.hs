@@ -100,7 +100,11 @@ collector = do
     clearBytes k d = maybeDecrypt k $ (S.concat . L.toChunks) d
 
 loadKey :: String -> IO (Either IOException AES)
-loadKey fname = try $ S.readFile fname >>= return . initAES
+loadKey fname = try $ S.readFile fname >>= return . initAES . trim 
+  where
+    trim = trim' . trim'
+    trim' = S.reverse . S.dropWhile isBlank
+    isBlank = flip elem (S.unpack " \n")
 
 maybeDecrypt :: Maybe AES -> S.ByteString -> S.ByteString
 maybeDecrypt aes ciphertext = case aes of 
