@@ -98,7 +98,10 @@ collector = do
 
 processDatum :: Maybe AES -> Job -> IO (Either JobError L.ByteString)
 processDatum key Job{..} = case (clearBytes key jobData) of
-    Left e -> return $ Left (Just $ L.pack e)
+    Left e -> do
+        putStrLn ("error decoding: " ++ e)
+        putStrLn (show jobData)
+        return $ Left (Just $ L.pack e)
     Right checkResult -> do
         (putStrLn . show . trimNulls) checkResult
         return $ Right "done"
