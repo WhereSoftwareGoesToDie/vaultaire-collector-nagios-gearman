@@ -107,7 +107,13 @@ processDatum dbg key Job{..} = case (clearBytes key jobData) of
         return $ Left (Just $ L.pack e)
     Right checkResult -> do
         ((maybePut dbg) . trimNulls) checkResult
-        return $ Right "done"
+        case (perfdataFromCheckResult checkResult) of
+            Left err -> do 
+                putStrLn ("Error parsing check result: " ++ err) 
+                return $ Left $ Just (L.pack err)
+            Right datum -> do
+                putStrLn ("Got datum: " ++ (show datum)) 
+                return $ Right "done"
   where
     clearBytes k d = decodeJob k $ (S.concat . L.toChunks) d
     trimNulls :: S.ByteString -> S.ByteString
@@ -123,8 +129,7 @@ loadKey fname = try $ S.readFile fname >>= return . initAES . trim
 decodeJob :: Maybe AES -> S.ByteString -> Either String S.ByteString
 decodeJob k d = case (B64.decode d) of 
     Right d' -> Right $ maybeDecrypt k d'
-    Left e   -> Left e
-
+    Left e   -> Left e 
 maybeDecrypt :: Maybe AES -> S.ByteString -> S.ByteString
 maybeDecrypt aes ciphertext = case aes of 
     Nothing -> ciphertext -- Nothing to do, we assume the input is already in cleartext.
