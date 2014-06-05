@@ -25,7 +25,8 @@ data CollectorOptions = CollectorOptions {
     optWorkerThreads :: Int,
     optVerbose       :: Bool,
     optFunctionName  :: String,
-    optKeyFile       :: String
+    optKeyFile       :: String,
+    optNamespace     :: String
 }
 
 opts :: Parser CollectorOptions
@@ -64,6 +65,12 @@ opts = CollectorOptions
             & value ""
             & metavar "KEY-FILE"
             & help "File from which to read AES key to decrypt check results. If unspecified, results are assumed to be in cleartext.")
+       <*> strOption
+           (long "namespace"
+            & short 'n'
+            & value "nagiosgearman"
+            & metavar "NAMESPACE"
+            & help "Namespace to use when talking to MarquiseD. Must be unique at a host level.")
 
 collectorOptionParser :: ParserInfo CollectorOptions
 collectorOptionParser = 
