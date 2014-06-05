@@ -30,7 +30,8 @@ executable vaultaire-collector-nagios-gearman
                        nagios-perfdata,
                        cipher-aes,
                        byteable,
-                       base64-bytestring
+                       base64-bytestring,
+                       vaultaire
   default-language:    Haskell2010
   ghc-options:         -O2
                        -threaded

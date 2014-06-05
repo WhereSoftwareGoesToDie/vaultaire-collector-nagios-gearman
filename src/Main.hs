@@ -4,6 +4,7 @@
 
 module Main where
 
+import Marquise.Client
 import Data.Byteable
 import Data.Word
 import Data.Nagios.Perfdata
@@ -95,6 +96,16 @@ collector = do
         void $ addFunc (L.pack optFunctionName) (processDatum optVerbose collectorAES) Nothing
         work
     return ()
+
+getMetricId :: Perfdata -> String -> S.ByteString
+getMetricId datum metric = 
+    let host = (perfdataHostname datum) in
+    let service = (perfdataServiceDescription datum) in
+    "host:" ++ host ++ ",metric:" ++ metric ++ ",service:" service
+
+getMetricAddresses :: Perfdata -> [(S.ByteString,Metric)]
+getMetricAddresses datum = 
+    zip (map (getMetricId datum) (perfdataMetrics datum)) (perfdataMetrics datum)
 
 processDatum :: Bool -> 
                 Maybe AES -> 
