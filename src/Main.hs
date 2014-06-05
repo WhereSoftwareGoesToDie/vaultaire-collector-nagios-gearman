@@ -105,7 +105,9 @@ getMetricId datum metric =
 
 getMetricAddresses :: Perfdata -> [(S.ByteString,Metric)]
 getMetricAddresses datum = 
-    zip (map (getMetricId datum) (perfdataMetrics datum)) (perfdataMetrics datum)
+    zip (map (getAddress datum) (perfdataMetrics datum)) (perfdataMetrics datum)
+  where
+    getAddress = hashIdentifier . getMetricId
 
 processDatum :: Bool -> 
                 Maybe AES -> 
