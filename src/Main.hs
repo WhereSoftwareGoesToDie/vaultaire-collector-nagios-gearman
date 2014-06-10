@@ -16,6 +16,7 @@ import Control.Monad.Reader
 import Options.Applicative
 import Crypto.Cipher.AES
 import qualified Data.ByteString as S
+import qualified Data.ByteString.Char8 as C
 import qualified Data.ByteString.Lazy.Char8 as L 
 import qualified Data.ByteString.Base64 as B64
 
@@ -104,17 +105,18 @@ collector = do
         work
     return ()
 
-getMetricId :: Perfdata -> String -> S.ByteString
+getMetricId :: Perfdata -> String -> C.ByteString
 getMetricId datum metric = 
-    let host = (perfdataHostname datum) in
-    let service = (perfdataServiceDescription datum) in
-    "host:" ++ host ++ ",metric:" ++ metric ++ ",service:" service
+    let host = perfdataHostname datum in
+    let service = C.unpack $ perfdataServiceDescription datum in
+    C.pack $ "host:" ++ host ++ ",metric:" ++ metric ++ ",service:" ++ service ++ ","
 
-getMetricAddresses :: Perfdata -> [(S.ByteString,Metric)]
+getMetricAddresses :: Perfdata -> [(Address,Metric)]
 getMetricAddresses datum = 
-    zip (map (getAddress datum) (perfdataMetrics datum)) (perfdataMetrics datum)
+    zip (map (getAddress datum) (map fst (perfdataMetrics datum))) (map snd (perfdataMetrics datum))
   where
-    getAddress = hashIdentifier . getMetricId
+    getAddress :: Perfdata -> String -> Address
+    getAddress p = hashIdentifier . (getMetricId p)
 
 processDatum :: Bool -> 
                 Maybe AES -> 
@@ -150,6 +152,7 @@ decodeJob :: Maybe AES -> S.ByteString -> Either String S.ByteString
 decodeJob k d = case (B64.decode d) of 
     Right d' -> Right $ maybeDecrypt k d'
     Left e   -> Left e 
+
 maybeDecrypt :: Maybe AES -> S.ByteString -> S.ByteString
 maybeDecrypt aes ciphertext = case aes of 
     Nothing -> ciphertext -- Nothing to do, we assume the input is already in cleartext.
