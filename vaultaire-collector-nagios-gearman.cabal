@@ -31,7 +31,8 @@ executable vaultaire-collector-nagios-gearman
                        cipher-aes,
                        byteable,
                        base64-bytestring,
-                       vaultaire
+                       vaultaire,
+                       cereal
   default-language:    Haskell2010
   ghc-options:         -O2
                        -threaded

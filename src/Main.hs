@@ -16,6 +16,7 @@ import Control.Monad
 import Control.Monad.Reader
 import Options.Applicative
 import Crypto.Cipher.AES
+import Data.Serialize
 import qualified Data.ByteString as S
 import qualified Data.ByteString.Char8 as C
 import qualified Data.ByteString.Lazy.Char8 as L 
@@ -119,7 +120,10 @@ unpackMetrics datum =
   where
     getAddress :: Perfdata -> String -> Address
     getAddress p = hashIdentifier . (getMetricId p)
-    extractValueWord = fromRational . (flip metricValueDefault 0.0)
+    extractValueWord d = case (extractValueWordEither d) of
+                           Left _ -> 0
+                           Right x -> x
+    extractValueWordEither = decode . encode . (flip metricValueDefault 0.0)
 
 processDatum :: Bool -> 
                 Maybe AES -> 
