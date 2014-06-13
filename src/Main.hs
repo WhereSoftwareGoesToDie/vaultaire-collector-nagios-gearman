@@ -116,13 +116,12 @@ getMetricId datum metric =
 
 unpackMetrics :: Perfdata -> [(Address,Word64)]
 unpackMetrics datum = 
-    zip (map (getAddress datum) (map fst (perfdataMetrics datum))) (map (extractValueWord . snd) (perfdataMetrics datum))
+    zip (map (getAddress datum) (map fst (perfdataMetrics datum)))
+        (map (extractValueWord . snd) (perfdataMetrics datum))
   where
     getAddress :: Perfdata -> String -> Address
     getAddress p = hashIdentifier . (getMetricId p)
-    extractValueWord d = case (extractValueWordEither d) of
-                           Left _ -> 0
-                           Right x -> x
+    extractValueWord = either (const 0) id . extractValueWordEither
     extractValueWordEither = decode . encode . (flip metricValueDefault 0.0)
 
 processDatum :: Bool -> 
@@ -134,7 +133,7 @@ processDatum dbg key spoolName Job{..} = case (clearBytes key jobData) of
     Left e -> do
         maybePut dbg ("error decoding: " ++ e)
         maybePut dbg jobData
-        return $ Left (Just $ L.pack e)
+        return . Left . Just $ L.pack e
     Right checkResult -> do
         ((maybePut dbg) . trimNulls) checkResult
         case (perfdataFromCheckResult checkResult) of
@@ -148,7 +147,7 @@ processDatum dbg key spoolName Job{..} = case (clearBytes key jobData) of
   where
     clearBytes k d = decodeJob k $ (S.concat . L.toChunks) d
     trimNulls :: S.ByteString -> S.ByteString
-    trimNulls = S.reverse . (S.dropWhile ((==) (0))) . S.reverse
+    trimNulls = S.reverse . (S.dropWhile ((0 ==))) . S.reverse
     sendPoint spool timestamp addr val = sendSimple spool addr timestamp val
     datumTimestamp = TimeStamp . fromIntegral .  perfdataTimestamp
 
@@ -170,8 +169,7 @@ maybeDecrypt aes ciphertext = case aes of
     Just k -> decryptECB k ciphertext
 
 runCollector :: CollectorOptions -> CollectorMonad a -> IO a
-runCollector op (CollectorMonad act) = do
-    let CollectorOptions{..} = op
+runCollector op@CollectorOptions{..} (CollectorMonad act) = do
     let spoolName = case (makeSpoolName optNamespace) of
                         Left err -> error "Invalid spool name - must be alphanumeric."
                         Right spool -> spool
