@@ -36,50 +36,50 @@ opts :: Parser CollectorOptions
 opts = CollectorOptions
        <$> strOption
            (long "gearman-host"
-            & short 'g'
-            & value "localhost"
-            & metavar "GEARMANHOST"
-            & help "Hostname of Gearman server.")
+            <> short 'g'
+            <> value "localhost"
+            <> metavar "GEARMANHOST"
+            <> help "Hostname of Gearman server.")
        <*> strOption
            (long "gearman-port"
-            & short 'p'
-            & value "4730"
-            & metavar "GEARMANPORT"
-            & help "Port number Gearman server is listening on.")
+            <> short 'p'
+            <> value "4730"
+            <> metavar "GEARMANPORT"
+            <> help "Port number Gearman server is listening on.")
        <*> option
            (long "workers" 
-            & short 'w'
-            & metavar "WORKERS"
-            & value 2
-            & help "Number of worker threads to run.")
+            <> short 'w'
+            <> metavar "WORKERS"
+            <> value 2
+            <> help "Number of worker threads to run.")
        <*> switch
            (long "verbose"
-            & short 'v'
-            & help "Write debugging output to stdout.")
+            <> short 'v'
+            <> help "Write debugging output to stdout.")
        <*> strOption
            (long "function-name"
-            & short 'f'
-            & value "check_results"
-            & metavar "FUNCTION-NAME"
-            & help "Name of function to register with Gearman server.")
+            <> short 'f'
+            <> value "check_results"
+            <> metavar "FUNCTION-NAME"
+            <> help "Name of function to register with Gearman server.")
        <*> strOption
            (long "key-file"
-            & short 'k'
-            & value ""
-            & metavar "KEY-FILE"
-            & help "File from which to read AES key to decrypt check results. If unspecified, results are assumed to be in cleartext.")
+            <> short 'k'
+            <> value ""
+            <> metavar "KEY-FILE"
+            <> help "File from which to read AES key to decrypt check results. If unspecified, results are assumed to be in cleartext.")
        <*> strOption
            (long "namespace"
-            & short 'n'
-            & value "nagiosgearman"
-            & metavar "NAMESPACE"
-            & help "Namespace to use when talking to MarquiseD. Must be unique at a host level.")
+            <> short 'n'
+            <> value "nagiosgearman"
+            <> metavar "NAMESPACE"
+            <> help "Namespace to use when talking to MarquiseD. Must be unique at a host level.")
 
 collectorOptionParser :: ParserInfo CollectorOptions
 collectorOptionParser = 
     info (helper <*> opts)
-    (fullDesc &
-        progDesc "Vaultaire collector for Nagios with mod_gearman" &
+    (fullDesc <>
+        progDesc "Vaultaire collector for Nagios with mod_gearman" <>
         header "vaultaire-collector-nagios-gearman - daemon to write Nagios perfdata to Vaultaire")
 
 data CollectorState = CollectorState {
