@@ -148,7 +148,7 @@ processDatum dbg key spoolName Job{..} = case (clearBytes key jobData) of
     clearBytes k d = decodeJob k $ (S.concat . L.toChunks) d
     trimNulls :: S.ByteString -> S.ByteString
     trimNulls = S.reverse . (S.dropWhile ((0 ==))) . S.reverse
-    sendPoint spool timestamp addr val = sendSimple spool addr timestamp val
+    sendPoint spool timestamp addr val = queueSimple spool addr timestamp val
     datumTimestamp = TimeStamp . fromIntegral .  perfdataTimestamp
 
 loadKey :: String -> IO (Either IOException AES)
