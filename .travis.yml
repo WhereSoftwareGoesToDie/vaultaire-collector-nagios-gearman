@@ -12,10 +12,19 @@ before_install:
 
 install:
   - 'cabal update'
+  - 'mkdir deps'
+  - 'cd deps'
+  - 'git clone https://github.com/anchor/vaultaire-common'
+  - 'git clone https://github.com/anchor/marquise'
+  - 'git clone https://github.com/anchor/nagios-perfdata'
+  - 'git clone https://github.com/anchor/gearman-haskell'
+  - 'cd ..'
+  - 'cabal sandbox init'
+  - 'cabal sandbox add-source ./deps/vaultaire-common'
+  - 'cabal sandbox add-source ./deps/marquise'
+  - 'cabal sandbox add-source ./deps/nagios-perfdata'
+  - 'cabal sandbox add-source ./deps/gearman-haskell'
   - 'cabal install --only-dependencies --enable-tests --enable-benchmarks'
-  - 'git clone https://github.com/anchor/vaultaire'
-  - 'cd vaultaire'
-  - 'cabal install'
 
 script:
   - 'cabal configure'
