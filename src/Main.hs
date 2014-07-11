@@ -85,7 +85,7 @@ collectorOptionParser =
 data CollectorState = CollectorState {
     collectorOpts :: CollectorOptions,
     collectorAES  :: Maybe AES,
-    spoolName     :: SpoolName
+    spoolFiles     :: SpoolFiles
 }
 
 newtype CollectorMonad a = CollectorMonad (ReaderT CollectorState IO a)
@@ -104,7 +104,7 @@ collector = do
     CollectorState{..} <- ask
     let CollectorOptions{..} = collectorOpts
     liftIO $ runGearman optGearmanHost optGearmanPort $ runWorker optWorkerThreads $ do
-        void $ addFunc (L.pack optFunctionName) (processDatum optVerbose collectorAES spoolName) Nothing
+        void $ addFunc (L.pack optFunctionName) (processDatum optVerbose collectorAES spoolFiles) Nothing
         work
     return ()
 
@@ -126,10 +126,10 @@ unpackMetrics datum =
 
 processDatum :: Bool -> 
                 Maybe AES -> 
-                SpoolName ->
+                SpoolFiles ->
                 Job -> 
                 IO (Either JobError L.ByteString)
-processDatum dbg key spoolName Job{..} = case (clearBytes key jobData) of
+processDatum dbg key spoolFiles Job{..} = case (clearBytes key jobData) of
     Left e -> do
         maybePut dbg ("error decoding: " ++ e)
         maybePut dbg jobData
@@ -142,7 +142,7 @@ processDatum dbg key spoolName Job{..} = case (clearBytes key jobData) of
                 return $ Left $ Just (L.pack err)
             Right datum -> do
                 putStrLn ("Got datum: " ++ (show datum)) 
-                mapM_ (uncurry (sendPoint spoolName (datumTimestamp datum))) (unpackMetrics datum)
+                mapM_ (uncurry (sendPoint spoolFiles (datumTimestamp datum))) (unpackMetrics datum)
                 return $ Right "done"
   where
     clearBytes k d = decodeJob k $ (S.concat . L.toChunks) d
@@ -170,18 +170,16 @@ maybeDecrypt aes ciphertext = case aes of
 
 runCollector :: CollectorOptions -> CollectorMonad a -> IO a
 runCollector op@CollectorOptions{..} (CollectorMonad act) = do
-    let spoolName = case (makeSpoolName optNamespace) of
-                        Left err -> error "Invalid spool name - must be alphanumeric."
-                        Right spool -> spool
+    spoolFiles <- createSpoolFiles optNamespace
     case optKeyFile of
-        "" -> runReaderT act $ CollectorState op Nothing spoolName
+        "" -> runReaderT act $ CollectorState op Nothing spoolFiles
         keyFile -> do
             aes <- loadKey keyFile
             case aes of
                 Left e -> do
                     putStrLn ("Error loading key: " ++ (show e)) 
-                    runReaderT act $ CollectorState op Nothing spoolName
-                Right k -> runReaderT act $ CollectorState op (Just k) spoolName
+                    runReaderT act $ CollectorState op Nothing spoolFiles
+                Right k -> runReaderT act $ CollectorState op (Just k) spoolFiles
 
 main :: IO ()
 main = execParser collectorOptionParser >>= flip runCollector collector
