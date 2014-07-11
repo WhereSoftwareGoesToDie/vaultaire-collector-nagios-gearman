@@ -135,8 +135,8 @@ processDatum dbg key spoolName Job{..} = case (clearBytes key jobData) of
         maybePut dbg jobData
         return . Left . Just $ L.pack e
     Right checkResult -> do
-        ((maybePut dbg) . trimNulls) checkResult
-        case (perfdataFromCheckResult checkResult) of
+        ((maybePut dbg) . trimNulls) (C.unpack checkResult)
+        case (perfdataFromGearmanResult checkResult) of
             Left err -> do 
                 putStrLn ("Error parsing check result: " ++ err) 
                 return $ Left $ Just (L.pack err)
