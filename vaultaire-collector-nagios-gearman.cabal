@@ -22,7 +22,7 @@ executable vaultaire-collector-nagios-gearman
   hs-source-dirs:      src
   include-dirs:        .
   build-depends:       base >=4.6,
-                       gearman-haskell <= 0.1,
+                       gearman-haskell <= 0.1.0.0,
                        bytestring,
                        containers,
                        mtl,
